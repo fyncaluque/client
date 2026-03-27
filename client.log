@@ -1,0 +1,23 @@
+[33m❯[39m Building...
+[32m✔[39m Building...
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                  [2m | [22m[1mRaw size[22m
+[32mstyles.css[39m         [2m | [22m[2mstyles[22m                 [2m | [22m[36m25.44 kB[39m[2m | [22m
+[32mmain.js[39m            [2m | [22m[2mmain[22m                   [2m | [22m[36m10.74 kB[39m[2m | [22m
+[32mchunk-EBNFNIQJ.js[39m  [2m | [22m[2m-[22m                      [2m | [22m [36m4.13 kB[39m[2m | [22m
+
+[1m [22m                  [2m | [22m[1mInitial total[22m          [2m | [22m[1m40.31 kB[22m
+
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                  [2m | [22m[1mRaw size[22m
+[32mchunk-SO5QSCNQ.js[39m  [2m | [22m[2monboarding-component[22m   [2m | [22m[36m54.09 kB[39m[2m | [22m
+[32mchunk-ZVPOTGWY.js[39m  [2m | [22m[2mdashboard-component[22m    [2m | [22m[36m29.05 kB[39m[2m | [22m
+[32mchunk-XNVM5GQX.js[39m  [2m | [22m[2m-[22m                      [2m | [22m[36m23.46 kB[39m[2m | [22m
+[32mchunk-DBB3LSCU.js[39m  [2m | [22m[2mregister-component[22m     [2m | [22m[36m12.66 kB[39m[2m | [22m
+[32mchunk-CRIMAKMC.js[39m  [2m | [22m[2mlogin-component[22m        [2m | [22m[36m12.00 kB[39m[2m | [22m
+[32mchunk-UASPZYSL.js[39m  [2m | [22m[2mschedule-view-component[22m[2m | [22m [36m8.89 kB[39m[2m | [22m
+[32mchunk-INE2GDHK.js[39m  [2m | [22m[2m-[22m                      [2m | [22m [36m2.87 kB[39m[2m | [22m
+
+Application bundle generation complete. [2.906 seconds] - 2026-03-27T16:25:45.448Z
+
+Watch mode enabled. Watching for file changes...
+NOTE: Raw file sizes do not reflect development server per-request transformations.
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m4200[22m/[39m
