@@ -3,166 +3,173 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService, ProviderInfo } from '../../core/services/api.service';
-import { ScheduleTimelineComponent } from '../schedule/schedule-timeline/schedule-timeline.component';
 import { SuggestionsPanel } from '../schedule/suggestions-panel/suggestions-panel.component';
+import { WeeklyPlannerComponent } from '../schedule/weekly-planner/weekly-planner.component';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, ScheduleTimelineComponent, SuggestionsPanel],
+  imports: [CommonModule, FormsModule, RouterLink, SuggestionsPanel, WeeklyPlannerComponent],
   template: `
-    <div class="max-w-7xl mx-auto px-4 py-8">
-      <!-- Header -->
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-        <div>
-          <h1 class="text-3xl font-bold text-gray-900">Tu Horario</h1>
-          <p class="text-gray-500 mt-1">Genera y personaliza tu horario ideal con IA</p>
-        </div>
-        <div class="flex gap-3">
-          <a routerLink="/onboarding" class="btn-secondary text-sm">Editar perfil</a>
-          <button (click)="generate()" class="btn-primary text-sm" [disabled]="generating">
-            {{ generating ? 'Generando...' : 'Generar horario' }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Provider Selector -->
-      @if (providers.length > 0) {
-        <div class="card mb-6">
-          <label class="label-text">Modelo de IA</label>
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            @for (p of providers; track p.id) {
+    <div class="min-h-screen bg-slate-900 text-slate-100">
+      <div class="max-w-[1400px] mx-auto px-4 py-6 space-y-6">
+        <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5">
+          <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+              <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Work schedule</p>
+              <h1 class="text-2xl sm:text-3xl font-bold mt-1">Planificador semanal</h1>
+              <p class="text-slate-400 text-sm mt-1">
+                Vista de 7 días con calendario por horas y edición por arrastrar y soltar.
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <a routerLink="/onboarding" class="px-4 py-2 rounded-lg border border-slate-700 text-sm hover:bg-slate-800">
+                Editar perfil
+              </a>
               <button
-                (click)="selectedProvider = p.id"
-                [class]="selectedProvider === p.id
-                  ? 'relative p-4 rounded-lg border-2 border-indigo-500 bg-indigo-50 text-left transition-all'
-                  : 'relative p-4 rounded-lg border-2 border-gray-200 hover:border-gray-300 text-left transition-all'"
+                (click)="generate()"
+                class="px-4 py-2 rounded-lg bg-cyan-500 text-slate-950 font-semibold text-sm hover:bg-cyan-400 disabled:opacity-60"
+                [disabled]="generating"
               >
-                @if (p.isFree) {
-                  <span class="absolute top-2 right-2 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
-                    GRATIS
-                  </span>
-                }
-                <div class="font-medium text-sm">{{ p.name }}</div>
-                <div class="text-xs text-gray-500 mt-0.5">{{ p.model }}</div>
-                <div class="text-xs text-gray-400 mt-1">{{ p.description }}</div>
-              </button>
-            }
-          </div>
-        </div>
-      }
-
-      <!-- Custom prompt -->
-      @if (showPromptInput) {
-        <div class="card mb-6">
-          <label class="label-text">Instrucciones adicionales (opcional)</label>
-          <textarea
-            [(ngModel)]="customPrompt"
-            class="input-field"
-            rows="3"
-            placeholder="Ej: Hoy tengo una reunión a las 3pm, quiero más tiempo para leer..."
-          ></textarea>
-          <div class="flex justify-end gap-3 mt-3">
-            <button (click)="showPromptInput = false" class="btn-secondary text-sm">Cancelar</button>
-            <button (click)="generate()" class="btn-primary text-sm" [disabled]="generating">
-              {{ generating ? 'Generando...' : 'Generar con instrucciones' }}
-            </button>
-          </div>
-        </div>
-      }
-
-      @if (errorMessage) {
-        <div class="bg-red-50 border border-red-200 text-red-600 p-4 rounded-lg mb-6">
-          {{ errorMessage }}
-        </div>
-      }
-
-      @if (!hasProfile && !generating) {
-        <div class="card text-center py-12">
-          <div class="text-5xl mb-4">📋</div>
-          <h2 class="text-xl font-bold mb-2">Completa tu perfil primero</h2>
-          <p class="text-gray-500 mb-6">
-            Necesitamos conocer tus preferencias para generar tu horario ideal.
-          </p>
-          <a routerLink="/onboarding" class="btn-primary">Completar perfil</a>
-        </div>
-      }
-
-      @if (hasProfile && currentWeek.length === 0 && !generating) {
-        <div class="card text-center py-12">
-          <div class="text-5xl mb-4">✨</div>
-          <h2 class="text-xl font-bold mb-2">Genera tu primer horario semanal</h2>
-          <p class="text-gray-500 mb-6">
-            Tu perfil está listo. Selecciona un modelo de IA y genera tu horario de lunes a domingo.
-          </p>
-          <div class="flex justify-center gap-3">
-            <button (click)="showPromptInput = true" class="btn-secondary">
-              Con instrucciones
-            </button>
-            <button (click)="generate()" class="btn-primary">
-              Generar ahora
-            </button>
-          </div>
-        </div>
-      }
-
-      @if (generating) {
-        <div class="card text-center py-12">
-          <div class="animate-spin w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full mx-auto mb-4"></div>
-          <h2 class="text-xl font-bold mb-2">Generando tu horario semanal...</h2>
-          <p class="text-gray-500">
-            Usando {{ getProviderName(selectedProvider) }} para crear tu horario personalizado
-          </p>
-        </div>
-      }
-
-      @if (currentWeek.length > 0 && !generating) {
-        <div class="card mb-6">
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-            <h2 class="text-lg font-bold">Semana {{ weekRangeLabel }}</h2>
-            <span class="text-sm text-gray-500">
-              {{ getSelectedDaySchedule()?.date | date:'fullDate' }}
-            </span>
-          </div>
-          <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-            @for (day of currentWeek; track day.id) {
-              <button
-                (click)="selectedDay = day.dayOfWeek"
-                [class]="selectedDay === day.dayOfWeek
-                  ? 'px-3 py-2 rounded-lg border border-indigo-500 bg-indigo-50 text-indigo-700 text-sm font-medium'
-                  : 'px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 text-gray-700 text-sm'"
-              >
-                {{ day.dayOfWeek | titlecase }}
-              </button>
-            }
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div class="lg:col-span-2">
-            <app-schedule-timeline
-              [blocks]="getSelectedDaySchedule()?.schedule || []"
-              (onRegenerate)="regenerateRange($event)"
-            />
-          </div>
-
-          <div>
-            <app-suggestions-panel
-              [suggestions]="getSelectedDaySchedule()?.suggestions || []"
-              [tips]="getSelectedDaySchedule()?.tips || []"
-            />
-
-            <div class="card mt-4 space-y-3">
-              <button (click)="showPromptInput = !showPromptInput" class="btn-secondary w-full text-sm">
-                Regenerar con instrucciones
-              </button>
-              <button (click)="generate()" class="btn-secondary w-full text-sm" [disabled]="generating">
-                Regenerar completo
+                {{ generating ? 'Generando...' : 'Generar semana' }}
               </button>
             </div>
           </div>
         </div>
-      }
+
+        @if (providers.length > 0) {
+          <div class="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+            <label class="text-xs uppercase tracking-wider text-slate-400">Modelo IA</label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">
+              @for (p of providers; track p.id) {
+                <button
+                  (click)="selectedProvider = p.id"
+                  [class]="selectedProvider === p.id
+                    ? 'relative rounded-lg border border-cyan-400 bg-cyan-500/10 text-left p-3'
+                    : 'relative rounded-lg border border-slate-700 hover:border-slate-600 text-left p-3'"
+                >
+                  @if (p.isFree) {
+                    <span class="absolute top-2 right-2 text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full">
+                      GRATIS
+                    </span>
+                  }
+                  <div class="font-medium text-sm">{{ p.name }}</div>
+                  <div class="text-xs text-slate-400 mt-0.5">{{ p.model }}</div>
+                  <div class="text-xs text-slate-500 mt-1">{{ p.description }}</div>
+                </button>
+              }
+            </div>
+          </div>
+        }
+
+        @if (showPromptInput) {
+          <div class="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+            <label class="text-xs uppercase tracking-wider text-slate-400">Instrucciones adicionales</label>
+            <textarea
+              [(ngModel)]="customPrompt"
+              class="w-full mt-2 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 focus:border-cyan-400 outline-none text-sm"
+              rows="3"
+              placeholder="Ej: Trabajo de 9 a 1, estudio en la noche, gym 3 veces"
+            ></textarea>
+            <div class="flex justify-end gap-2 mt-3">
+              <button (click)="showPromptInput = false" class="px-3 py-2 rounded-lg border border-slate-700 text-sm hover:bg-slate-800">
+                Cancelar
+              </button>
+              <button (click)="generate()" class="px-3 py-2 rounded-lg bg-cyan-500 text-slate-950 text-sm font-semibold hover:bg-cyan-400" [disabled]="generating">
+                {{ generating ? 'Generando...' : 'Generar con instrucciones' }}
+              </button>
+            </div>
+          </div>
+        }
+
+        @if (errorMessage) {
+          <div class="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+            {{ errorMessage }}
+          </div>
+        }
+
+        @if (!hasProfile && !generating) {
+          <div class="rounded-2xl border border-slate-800 bg-slate-950 p-10 text-center">
+            <div class="text-4xl mb-4">📋</div>
+            <h2 class="text-xl font-bold mb-2">Completa tu perfil primero</h2>
+            <p class="text-slate-400 mb-6">Necesitamos tus preferencias para construir la semana completa.</p>
+            <a routerLink="/onboarding" class="px-4 py-2 rounded-lg bg-cyan-500 text-slate-950 font-semibold">Completar perfil</a>
+          </div>
+        }
+
+        @if (hasProfile && currentWeek.length === 0 && !generating) {
+          <div class="rounded-2xl border border-slate-800 bg-slate-950 p-10 text-center">
+            <div class="text-4xl mb-4">✨</div>
+            <h2 class="text-xl font-bold mb-2">Genera tu horario de lunes a domingo</h2>
+            <p class="text-slate-400 mb-6">Incluye tareas, descansos y actividades ubicadas por hora.</p>
+            <div class="flex justify-center gap-3">
+              <button (click)="showPromptInput = true" class="px-4 py-2 rounded-lg border border-slate-700 hover:bg-slate-800">
+                Con instrucciones
+              </button>
+              <button (click)="generate()" class="px-4 py-2 rounded-lg bg-cyan-500 text-slate-950 font-semibold hover:bg-cyan-400">
+                Generar ahora
+              </button>
+            </div>
+          </div>
+        }
+
+        @if (generating) {
+          <div class="rounded-2xl border border-slate-800 bg-slate-950 p-10 text-center">
+            <div class="animate-spin w-10 h-10 border-4 border-slate-700 border-t-cyan-400 rounded-full mx-auto mb-4"></div>
+            <h2 class="text-xl font-bold mb-2">Generando tu horario semanal...</h2>
+            <p class="text-slate-400">Usando {{ getProviderName(selectedProvider) }}</p>
+          </div>
+        }
+
+        @if (currentWeek.length > 0 && !generating) {
+          <div class="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4">
+            <app-weekly-planner
+              [weekDays]="currentWeek"
+              [selectedDay]="selectedDay"
+              (selectedDayChange)="selectedDay = $event"
+              (weekDaysChange)="currentWeek = $event"
+              (regenerateRange)="onRegenerateBlock($event)"
+            />
+
+            <div class="space-y-4">
+              <div class="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+                <p class="text-xs uppercase tracking-wider text-slate-500">Semana activa</p>
+                <h3 class="text-lg font-semibold mt-1">{{ weekRangeLabel }}</h3>
+                <p class="text-sm text-slate-400 mt-1">
+                  Día seleccionado: {{ getSelectedDaySchedule()?.dayOfWeek | titlecase }}
+                </p>
+                <p class="text-sm text-slate-400">
+                  Fecha: {{ getSelectedDaySchedule()?.date | date:'fullDate' }}
+                </p>
+                <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <div class="rounded-lg bg-slate-900 border border-slate-800 p-2">
+                    <p class="text-slate-500">Bloques</p>
+                    <p class="font-semibold">{{ getSelectedDaySchedule()?.schedule?.length || 0 }}</p>
+                  </div>
+                  <div class="rounded-lg bg-slate-900 border border-slate-800 p-2">
+                    <p class="text-slate-500">Modelo</p>
+                    <p class="font-semibold truncate">{{ getProviderName(selectedProvider) }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <app-suggestions-panel
+                [suggestions]="getSelectedDaySchedule()?.suggestions || []"
+                [tips]="getSelectedDaySchedule()?.tips || []"
+              />
+
+              <div class="rounded-2xl border border-slate-800 bg-slate-950 p-3 space-y-2">
+                <button (click)="showPromptInput = !showPromptInput" class="w-full px-3 py-2 rounded-lg border border-slate-700 text-sm hover:bg-slate-800">
+                  Regenerar con instrucciones
+                </button>
+                <button (click)="generate()" class="w-full px-3 py-2 rounded-lg bg-cyan-500 text-slate-950 font-semibold text-sm hover:bg-cyan-400">
+                  Regenerar semana completa
+                </button>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
     </div>
   `,
 })
@@ -247,19 +254,18 @@ export class DashboardComponent implements OnInit {
     }
   }
 
-  async regenerateRange(range: { start: string; end: string }) {
-    const selected = this.getSelectedDaySchedule();
-    if (!selected?.id) return;
+  async onRegenerateBlock(event: { dayId: string; range: { start: string; end: string } }) {
+    if (!event.dayId) return;
 
     this.generating = true;
     try {
       const response: any = await this.api.regeneratePartial(
-        selected.id,
-        range
+        event.dayId,
+        event.range
       );
       if (response?.success) {
         this.currentWeek = this.currentWeek.map((day) =>
-          day.id === selected.id
+          day.id === event.dayId
             ? {
                 ...day,
                 schedule: response.data.schedule,
