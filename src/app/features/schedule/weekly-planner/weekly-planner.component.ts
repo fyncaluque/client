@@ -1,5 +1,12 @@
 import { CommonModule } from '@angular/common';
 import { Component, ElementRef, EventEmitter, Input, Output } from '@angular/core';
+import type { AppTheme } from '../../../core/services/theme.service';
+import {
+  CATEGORY_BORDER_DARK,
+  CATEGORY_BORDER_LIGHT,
+  CATEGORY_FILL,
+  WEEKLY_PLANNER_SKIN,
+} from './weekly-planner.theme';
 
 interface ScheduleBlock {
   start: string;
@@ -25,51 +32,43 @@ interface WeekDaySchedule {
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="rounded-2xl border border-slate-800 bg-slate-950 text-slate-100 shadow-2xl shadow-slate-950/30">
-      <div class="border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+    <div [class]="skin.shell">
+      <div [class]="skin.header">
         <div>
-          <h2 class="text-base font-semibold">Agenda semanal</h2>
-          <p class="text-xs text-slate-400">Arrastra y suelta para mover actividades en el tiempo</p>
+          <h2 [class]="skin.headerTitle">Agenda semanal</h2>
+          <p [class]="skin.headerSub">Arrastra y suelta para mover actividades en el tiempo</p>
         </div>
-        <span class="text-xs text-slate-400">{{ getTotalBlocks() }} bloques</span>
+        <span [class]="skin.headerSub">{{ getTotalBlocks() }} bloques</span>
       </div>
 
-      <div class="overflow-auto max-h-[70vh]">
-        <div class="min-w-[980px]">
-          <div class="grid sticky top-0 z-20 bg-slate-950/95 backdrop-blur border-b border-slate-800"
-            [style.gridTemplateColumns]="gridTemplateColumns">
-            <div class="p-2 text-[11px] uppercase tracking-wide text-slate-500 font-semibold border-r border-slate-800">
-              Hora
-            </div>
+      <div class="overflow-auto h-[calc(100%-57px)]">
+        <div class="min-w-[1020px]">
+          <div [class]="skin.sticky" [style.gridTemplateColumns]="gridTemplateColumns">
+            <div [class]="skin.colHora">Hora</div>
             @for (day of weekDays; track day.id) {
               <button
-                class="p-2 text-left border-r border-slate-800 hover:bg-slate-900 transition-colors"
-                [class.bg-slate-900]="day.dayOfWeek === selectedDay"
+                type="button"
+                [class]="dayHeaderClass(day)"
                 (click)="selectedDayChange.emit(day.dayOfWeek)"
               >
-                <div class="text-xs uppercase tracking-wide text-slate-400">{{ getDayLabel(day.dayOfWeek) }}</div>
-                <div class="text-sm font-medium text-slate-100">{{ day.date | date:'d MMM' }}</div>
+                <div [class]="skin.dayLabel">{{ getDayLabel(day.dayOfWeek) }}</div>
+                <div [class]="skin.dayDate">{{ day.date | date:'d MMM' }}</div>
               </button>
             }
           </div>
 
           <div class="grid relative" [style.gridTemplateColumns]="gridTemplateColumns">
-            <div class="border-r border-slate-800 relative" [style.height.px]="dayHeightPx">
+            <div [class]="skin.gridTimeCol" [style.height.px]="dayHeightPx">
               @for (hour of hours; track hour) {
-                <div
-                  class="absolute inset-x-0 border-t border-slate-800/80"
-                  [style.top.px]="hour * hourHeightPx"
-                >
-                  <span class="absolute -top-2 left-2 text-[10px] text-slate-500 bg-slate-950 px-1">
-                    {{ formatHour(hour) }}
-                  </span>
+                <div [class]="skin.hourLine" [style.top.px]="hour * hourHeightPx">
+                  <span [class]="skin.hourLabel">{{ formatHour(hour) }}</span>
                 </div>
               }
             </div>
 
             @for (day of weekDays; track day.id; let dayIndex = $index) {
               <div
-                class="relative border-r border-slate-800"
+                [class]="skin.dayCol"
                 [style.height.px]="dayHeightPx"
                 #dayColumn
                 (dragover)="onDayDragOver($event)"
@@ -78,7 +77,7 @@ interface WeekDaySchedule {
               >
                 @for (hour of hours; track hour) {
                   <div
-                    class="absolute inset-x-0 border-t border-slate-800/70"
+                    [class]="skin.hourLineInner"
                     [style.top.px]="hour * hourHeightPx"
                   ></div>
                 }
@@ -89,23 +88,20 @@ interface WeekDaySchedule {
                     draggable="true"
                     [style.top.px]="timeToPx(block.start)"
                     [style.height.px]="getBlockHeight(block)"
-                    [style.backgroundColor]="getCategoryBg(block.category)"
-                    [style.borderColor]="getCategoryColor(block.category)"
+                    [style.backgroundColor]="getCategoryFill(block.category)"
+                    [style.borderColor]="getCategoryBorder(block.category)"
                     (dragstart)="onBlockDragStart($event, dayIndex, blockIndex)"
                   >
                     <div class="flex items-start justify-between gap-2">
                       <div class="min-w-0">
-                        <p class="text-[11px] font-semibold truncate text-slate-50">
-                          {{ block.activity }}
-                        </p>
-                        <p class="text-[10px] text-slate-300">
-                          {{ block.start }} - {{ block.end }}
-                        </p>
+                        <p [class]="skin.blockTitle">{{ block.activity }}</p>
+                        <p [class]="skin.blockMeta">{{ block.start }} - {{ block.end }}</p>
                       </div>
                       <div class="flex items-center gap-1">
                         @if (!block.isFixed) {
                           <button
-                            class="text-[10px] text-cyan-300 hover:text-cyan-200"
+                            type="button"
+                            [class]="skin.regenBtn"
                             (click)="requestRegeneration($event, day.id, block)"
                             title="Regenerar bloque"
                           >
@@ -113,24 +109,18 @@ interface WeekDaySchedule {
                           </button>
                         }
                         @if (block.isFixed) {
-                          <span class="text-[9px] text-amber-300">Fijo</span>
+                          <span [class]="skin.fixedTag">Fijo</span>
                         }
                       </div>
                     </div>
                   </div>
                 }
-
               </div>
             }
 
             @if (dropPreview) {
-              <div
-                class="absolute left-0 right-0 border-t-2 border-cyan-400 pointer-events-none z-40"
-                [style.top.px]="minutesToPx(dropPreview.startMinutes)"
-              >
-                <span class="absolute -top-3 left-1 text-[10px] px-1.5 py-0.5 rounded bg-cyan-500 text-slate-950 font-semibold">
-                  {{ formatTime(dropPreview.startMinutes) }}
-                </span>
+              <div [class]="skin.dropLine" [style.top.px]="minutesToPx(dropPreview.startMinutes)">
+                <span [class]="skin.dropBadge">{{ formatTime(dropPreview.startMinutes) }}</span>
               </div>
             }
           </div>
@@ -140,6 +130,7 @@ interface WeekDaySchedule {
   `,
 })
 export class WeeklyPlannerComponent {
+  @Input() theme: AppTheme = 'light';
   @Input() weekDays: WeekDaySchedule[] = [];
   @Input() selectedDay = 'monday';
   @Output() selectedDayChange = new EventEmitter<string>();
@@ -150,6 +141,16 @@ export class WeeklyPlannerComponent {
   readonly hours = Array.from({ length: 25 }, (_, i) => i);
   private dragState: { dayIndex: number; blockIndex: number; durationMinutes: number } | null = null;
   dropPreview: { startMinutes: number } | null = null;
+
+  get skin() {
+    return WEEKLY_PLANNER_SKIN[this.theme];
+  }
+
+  dayHeaderClass(day: WeekDaySchedule): string {
+    const s = this.skin;
+    const active = day.dayOfWeek === this.selectedDay ? ` ${s.dayBtnActive}` : '';
+    return `${s.dayBtn} ${s.dayBtnHover}${active}`;
+  }
 
   get gridTemplateColumns(): string {
     return `72px repeat(${Math.max(this.weekDays.length, 1)}, minmax(130px, 1fr))`;
@@ -189,6 +190,15 @@ export class WeeklyPlannerComponent {
     const end = this.timeToMinutes(block.end);
     const duration = Math.max(end - start, 30);
     return Math.max(duration * (this.hourHeightPx / 60), 24);
+  }
+
+  getCategoryFill(category: string): string {
+    return CATEGORY_FILL[category] ?? '#d8d4f2';
+  }
+
+  getCategoryBorder(category: string): string {
+    const map = this.theme === 'dark' ? CATEGORY_BORDER_DARK : CATEGORY_BORDER_LIGHT;
+    return map[category] ?? (this.theme === 'dark' ? '#6b6088' : '#c4bdd8');
   }
 
   onBlockDragStart(event: DragEvent, dayIndex: number, blockIndex: number): void {
@@ -274,32 +284,6 @@ export class WeeklyPlannerComponent {
     });
   }
 
-  getCategoryColor(category: string): string {
-    const map: Record<string, string> = {
-      sleep: '#6366f1',
-      morning_routine: '#f59e0b',
-      exercise: '#10b981',
-      work: '#3b82f6',
-      meal: '#f97316',
-      deep_work: '#8b5cf6',
-      learning: '#06b6d4',
-      creative: '#ec4899',
-      social: '#14b8a6',
-      wellness: '#84cc16',
-      leisure: '#a855f7',
-      chores: '#78716c',
-      commute: '#64748b',
-      break: '#9ca3af',
-      evening_routine: '#eab308',
-      free_time: '#22c55e',
-    };
-    return map[category] || '#38bdf8';
-  }
-
-  getCategoryBg(category: string): string {
-    return `${this.getCategoryColor(category)}33`;
-  }
-
   minutesToPx(minutes: number): number {
     return minutes * (this.hourHeightPx / 60);
   }
@@ -328,5 +312,4 @@ export class WeeklyPlannerComponent {
   private snapToQuarterHour(minutes: number): number {
     return Math.round(minutes / 15) * 15;
   }
-
 }

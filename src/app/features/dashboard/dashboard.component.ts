@@ -1,181 +1,116 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { ApiService, ProviderInfo } from '../../core/services/api.service';
-import { SuggestionsPanel } from '../schedule/suggestions-panel/suggestions-panel.component';
+import { ThemeService } from '../../core/services/theme.service';
 import { WeeklyPlannerComponent } from '../schedule/weekly-planner/weekly-planner.component';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, SuggestionsPanel, WeeklyPlannerComponent],
+  imports: [CommonModule, WeeklyPlannerComponent],
   template: `
-    <div class="min-h-screen bg-slate-900 text-slate-100">
-      <div class="max-w-[1400px] mx-auto px-4 py-6 space-y-6">
-        <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5">
-          <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div>
-              <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Work schedule</p>
-              <h1 class="text-2xl sm:text-3xl font-bold mt-1">Planificador semanal</h1>
-              <p class="text-slate-400 text-sm mt-1">
-                Vista de 7 días con calendario por horas y edición por arrastrar y soltar.
-              </p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <a routerLink="/onboarding" class="px-4 py-2 rounded-lg border border-slate-700 text-sm hover:bg-slate-800">
-                Editar perfil
-              </a>
-              <button
-                (click)="generate()"
-                class="px-4 py-2 rounded-lg bg-cyan-500 text-slate-950 font-semibold text-sm hover:bg-cyan-400 disabled:opacity-60"
-                [disabled]="generating"
-              >
-                {{ generating ? 'Generando...' : 'Generar semana' }}
-              </button>
-            </div>
+    <div
+      [ngClass]="
+        theme.theme() === 'light'
+          ? 'min-h-screen bg-[#f4f1ea] p-3 md:p-4'
+          : 'min-h-screen bg-[#1d1a2e] p-3 md:p-4'
+      "
+    >
+      @if (errorMessage) {
+        <div
+          class="mb-3 rounded-xl border p-3 text-sm"
+          [ngClass]="
+            theme.theme() === 'light'
+              ? 'border-[#f2b8c6] bg-[#ffe4ec] text-[#7f1d3f]'
+              : 'border-[#8b4a5c] bg-[#3d2830] text-[#f0c0d0]'
+          "
+        >
+          {{ errorMessage }}
+        </div>
+      }
+
+      @if (generating) {
+        <div
+          class="h-[calc(100vh-2rem)] rounded-2xl border flex items-center justify-center"
+          [ngClass]="
+            theme.theme() === 'light'
+              ? 'border-[#d8d4f2] bg-[#f8f6ff]'
+              : 'border-[#4a3f6b] bg-[#2a2438]'
+          "
+        >
+          <div class="text-center">
+            <div
+              class="animate-spin w-10 h-10 border-4 rounded-full mx-auto mb-4"
+              [ngClass]="
+                theme.theme() === 'light'
+                  ? 'border-[#d8d4f2] border-t-[#8dd3c7]'
+                  : 'border-[#4a3f6b] border-t-[#8dd3c7]'
+              "
+            ></div>
+            <p
+              class="font-medium"
+              [ngClass]="theme.theme() === 'light' ? 'text-[#3f3a5d]' : 'text-[#e8e4f5]'"
+            >
+              Generando horario semanal...
+            </p>
           </div>
         </div>
+      }
 
-        @if (providers.length > 0) {
-          <div class="rounded-2xl border border-slate-800 bg-slate-950 p-4">
-            <label class="text-xs uppercase tracking-wider text-slate-400">Modelo IA</label>
-            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">
-              @for (p of providers; track p.id) {
-                <button
-                  (click)="selectedProvider = p.id"
-                  [class]="selectedProvider === p.id
-                    ? 'relative rounded-lg border border-cyan-400 bg-cyan-500/10 text-left p-3'
-                    : 'relative rounded-lg border border-slate-700 hover:border-slate-600 text-left p-3'"
-                >
-                  @if (p.isFree) {
-                    <span class="absolute top-2 right-2 text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full">
-                      GRATIS
-                    </span>
-                  }
-                  <div class="font-medium text-sm">{{ p.name }}</div>
-                  <div class="text-xs text-slate-400 mt-0.5">{{ p.model }}</div>
-                  <div class="text-xs text-slate-500 mt-1">{{ p.description }}</div>
-                </button>
-              }
-            </div>
-          </div>
-        }
+      @if (!generating && currentWeek.length > 0) {
+        <app-weekly-planner
+          [theme]="theme.theme()"
+          [weekDays]="currentWeek"
+          [selectedDay]="selectedDay"
+          (selectedDayChange)="selectedDay = $event"
+          (weekDaysChange)="currentWeek = $event"
+          (regenerateRange)="onRegenerateBlock($event)"
+        />
+      }
 
-        @if (showPromptInput) {
-          <div class="rounded-2xl border border-slate-800 bg-slate-950 p-4">
-            <label class="text-xs uppercase tracking-wider text-slate-400">Instrucciones adicionales</label>
-            <textarea
-              [(ngModel)]="customPrompt"
-              class="w-full mt-2 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 focus:border-cyan-400 outline-none text-sm"
-              rows="3"
-              placeholder="Ej: Trabajo de 9 a 1, estudio en la noche, gym 3 veces"
-            ></textarea>
-            <div class="flex justify-end gap-2 mt-3">
-              <button (click)="showPromptInput = false" class="px-3 py-2 rounded-lg border border-slate-700 text-sm hover:bg-slate-800">
-                Cancelar
-              </button>
-              <button (click)="generate()" class="px-3 py-2 rounded-lg bg-cyan-500 text-slate-950 text-sm font-semibold hover:bg-cyan-400" [disabled]="generating">
-                {{ generating ? 'Generando...' : 'Generar con instrucciones' }}
-              </button>
-            </div>
-          </div>
-        }
+      @if (!generating && currentWeek.length === 0) {
+        <div
+          class="h-[calc(100vh-2rem)] rounded-2xl border flex items-center justify-center"
+          [ngClass]="
+            theme.theme() === 'light'
+              ? 'border-[#d8d4f2] bg-[#f8f6ff]'
+              : 'border-[#4a3f6b] bg-[#2a2438]'
+          "
+        >
+          <button
+            type="button"
+            (click)="generate()"
+            class="px-6 py-3 rounded-xl font-semibold"
+            [ngClass]="
+              theme.theme() === 'light'
+                ? 'bg-[#8dd3c7] text-[#1f2937] hover:bg-[#a8e2d8]'
+                : 'bg-[#6db8a8] text-[#0f1a18] hover:bg-[#8dd3c7]'
+            "
+          >
+            Generar horario semanal
+          </button>
+        </div>
+      }
 
-        @if (errorMessage) {
-          <div class="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
-            {{ errorMessage }}
-          </div>
-        }
-
-        @if (!hasProfile && !generating) {
-          <div class="rounded-2xl border border-slate-800 bg-slate-950 p-10 text-center">
-            <div class="text-4xl mb-4">📋</div>
-            <h2 class="text-xl font-bold mb-2">Completa tu perfil primero</h2>
-            <p class="text-slate-400 mb-6">Necesitamos tus preferencias para construir la semana completa.</p>
-            <a routerLink="/onboarding" class="px-4 py-2 rounded-lg bg-cyan-500 text-slate-950 font-semibold">Completar perfil</a>
-          </div>
-        }
-
-        @if (hasProfile && currentWeek.length === 0 && !generating) {
-          <div class="rounded-2xl border border-slate-800 bg-slate-950 p-10 text-center">
-            <div class="text-4xl mb-4">✨</div>
-            <h2 class="text-xl font-bold mb-2">Genera tu horario de lunes a domingo</h2>
-            <p class="text-slate-400 mb-6">Incluye tareas, descansos y actividades ubicadas por hora.</p>
-            <div class="flex justify-center gap-3">
-              <button (click)="showPromptInput = true" class="px-4 py-2 rounded-lg border border-slate-700 hover:bg-slate-800">
-                Con instrucciones
-              </button>
-              <button (click)="generate()" class="px-4 py-2 rounded-lg bg-cyan-500 text-slate-950 font-semibold hover:bg-cyan-400">
-                Generar ahora
-              </button>
-            </div>
-          </div>
-        }
-
-        @if (generating) {
-          <div class="rounded-2xl border border-slate-800 bg-slate-950 p-10 text-center">
-            <div class="animate-spin w-10 h-10 border-4 border-slate-700 border-t-cyan-400 rounded-full mx-auto mb-4"></div>
-            <h2 class="text-xl font-bold mb-2">Generando tu horario semanal...</h2>
-            <p class="text-slate-400">Usando {{ getProviderName(selectedProvider) }}</p>
-          </div>
-        }
-
-        @if (currentWeek.length > 0 && !generating) {
-          <div class="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4">
-            <app-weekly-planner
-              [weekDays]="currentWeek"
-              [selectedDay]="selectedDay"
-              (selectedDayChange)="selectedDay = $event"
-              (weekDaysChange)="currentWeek = $event"
-              (regenerateRange)="onRegenerateBlock($event)"
-            />
-
-            <div class="space-y-4">
-              <div class="rounded-2xl border border-slate-800 bg-slate-950 p-4">
-                <p class="text-xs uppercase tracking-wider text-slate-500">Semana activa</p>
-                <h3 class="text-lg font-semibold mt-1">{{ weekRangeLabel }}</h3>
-                <p class="text-sm text-slate-400 mt-1">
-                  Día seleccionado: {{ getSelectedDaySchedule()?.dayOfWeek | titlecase }}
-                </p>
-                <p class="text-sm text-slate-400">
-                  Fecha: {{ getSelectedDaySchedule()?.date | date:'fullDate' }}
-                </p>
-                <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  <div class="rounded-lg bg-slate-900 border border-slate-800 p-2">
-                    <p class="text-slate-500">Bloques</p>
-                    <p class="font-semibold">{{ getSelectedDaySchedule()?.schedule?.length || 0 }}</p>
-                  </div>
-                  <div class="rounded-lg bg-slate-900 border border-slate-800 p-2">
-                    <p class="text-slate-500">Modelo</p>
-                    <p class="font-semibold truncate">{{ getProviderName(selectedProvider) }}</p>
-                  </div>
-                </div>
-              </div>
-
-              <app-suggestions-panel
-                [suggestions]="getSelectedDaySchedule()?.suggestions || []"
-                [tips]="getSelectedDaySchedule()?.tips || []"
-              />
-
-              <div class="rounded-2xl border border-slate-800 bg-slate-950 p-3 space-y-2">
-                <button (click)="showPromptInput = !showPromptInput" class="w-full px-3 py-2 rounded-lg border border-slate-700 text-sm hover:bg-slate-800">
-                  Regenerar con instrucciones
-                </button>
-                <button (click)="generate()" class="w-full px-3 py-2 rounded-lg bg-cyan-500 text-slate-950 font-semibold text-sm hover:bg-cyan-400">
-                  Regenerar semana completa
-                </button>
-              </div>
-            </div>
-          </div>
-        }
-      </div>
+      <button
+        type="button"
+        (click)="theme.toggle()"
+        class="fixed bottom-4 right-4 z-100 rounded-full px-4 py-2.5 text-sm font-medium shadow-lg border-2 transition-colors"
+        [ngClass]="
+          theme.theme() === 'light'
+            ? 'border-[#d8d4f2] bg-[#f8f6ff] text-[#2f2a44] hover:bg-[#ece7ff]'
+            : 'border-[#4a3f6b] bg-[#322b4a] text-[#e8e4f5] hover:bg-[#3d3558]'
+        "
+        [attr.aria-label]="theme.theme() === 'light' ? 'Activar modo oscuro' : 'Activar modo claro'"
+      >
+        {{ theme.theme() === 'light' ? 'Modo oscuro' : 'Modo claro' }}
+      </button>
     </div>
   `,
 })
 export class DashboardComponent implements OnInit {
   generating = false;
-  hasProfile = false;
+  hasProfile = true;
   showPromptInput = false;
   customPrompt = '';
   errorMessage = '';
@@ -186,14 +121,16 @@ export class DashboardComponent implements OnInit {
   providers: ProviderInfo[] = [];
   selectedProvider = '';
 
-  constructor(private api: ApiService) {}
+  constructor(
+    private api: ApiService,
+    public theme: ThemeService
+  ) {}
 
   async ngOnInit() {
     await this.loadData();
   }
 
   async loadData() {
-    // Load providers
     try {
       const provRes: any = await this.api.getProviders();
       if (provRes?.success && provRes.data) {
@@ -206,7 +143,6 @@ export class DashboardComponent implements OnInit {
       // Providers endpoint not available
     }
 
-    // Load profile
     try {
       const profileRes: any = await this.api.getProfile();
       this.hasProfile = profileRes?.success && !!profileRes.data;
@@ -214,7 +150,6 @@ export class DashboardComponent implements OnInit {
       this.hasProfile = false;
     }
 
-    // Load existing schedules
     try {
       const schedulesRes: any = await this.api.getSchedules();
       if (schedulesRes?.success && schedulesRes.data?.length > 0) {
@@ -259,10 +194,7 @@ export class DashboardComponent implements OnInit {
 
     this.generating = true;
     try {
-      const response: any = await this.api.regeneratePartial(
-        event.dayId,
-        event.range
-      );
+      const response: any = await this.api.regeneratePartial(event.dayId, event.range);
       if (response?.success) {
         this.currentWeek = this.currentWeek.map((day) =>
           day.id === event.dayId

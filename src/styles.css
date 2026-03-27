@@ -3,7 +3,13 @@
 /* Custom base styles */
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900 font-sans antialiased;
+    @apply font-sans antialiased;
+  }
+  body.theme-light {
+    @apply bg-[#f4f1ea] text-gray-900;
+  }
+  body.theme-dark {
+    @apply bg-[#1d1a2e] text-[#e8e4f5];
   }
 }
 
