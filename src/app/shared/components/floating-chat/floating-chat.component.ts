@@ -127,9 +127,9 @@ interface ChatAction {
                   : 'bg-[#3d3558] text-[#e8e4f5]'"
               >
                 <span class="inline-flex gap-1 items-center">
-                  <span class="w-1.5 h-1.5 rounded-full animate-bounce" [class]="theme === 'light' ? 'bg-[#6b628e]' : 'bg-[#9b8fc4']" style="animation-delay: 0ms"></span>
-                  <span class="w-1.5 h-1.5 rounded-full animate-bounce" [class]="theme === 'light' ? 'bg-[#6b628e]' : 'bg-[#9b8fc4']" style="animation-delay: 150ms"></span>
-                  <span class="w-1.5 h-1.5 rounded-full animate-bounce" [class]="theme === 'light' ? 'bg-[#6b628e]' : 'bg-[#9b8fc4']" style="animation-delay: 300ms"></span>
+                  <span class="w-1.5 h-1.5 rounded-full animate-bounce" [class]="theme === 'light' ? 'bg-[#6b628e]' : 'bg-[#9b8fc4]'" style="animation-delay: 0ms"></span>
+                  <span class="w-1.5 h-1.5 rounded-full animate-bounce" [class]="theme === 'light' ? 'bg-[#6b628e]' : 'bg-[#9b8fc4]'" style="animation-delay: 150ms"></span>
+                  <span class="w-1.5 h-1.5 rounded-full animate-bounce" [class]="theme === 'light' ? 'bg-[#6b628e]' : 'bg-[#9b8fc4]'" style="animation-delay: 300ms"></span>
                 </span>
               </div>
             </div>
