@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService, ProviderInfo } from '../../core/services/api.service';
 import { ThemeService } from '../../core/services/theme.service';
@@ -65,6 +65,8 @@ import { WeeklyPlannerComponent } from '../schedule/weekly-planner/weekly-planne
           (selectedDayChange)="selectedDay = $event"
           (weekDaysChange)="currentWeek = $event"
           (regenerateRange)="onRegenerateBlock($event)"
+          (themeToggle)="theme.toggle()"
+          (refreshSchedule)="loadData()"
         />
       }
 
@@ -91,20 +93,6 @@ import { WeeklyPlannerComponent } from '../schedule/weekly-planner/weekly-planne
           </button>
         </div>
       }
-
-      <button
-        type="button"
-        (click)="theme.toggle()"
-        class="fixed bottom-4 right-4 z-100 rounded-full px-4 py-2.5 text-sm font-medium shadow-lg border-2 transition-colors"
-        [ngClass]="
-          theme.theme() === 'light'
-            ? 'border-[#d8d4f2] bg-[#f8f6ff] text-[#2f2a44] hover:bg-[#ece7ff]'
-            : 'border-[#4a3f6b] bg-[#322b4a] text-[#e8e4f5] hover:bg-[#3d3558]'
-        "
-        [attr.aria-label]="theme.theme() === 'light' ? 'Activar modo oscuro' : 'Activar modo claro'"
-      >
-        {{ theme.theme() === 'light' ? 'Modo oscuro' : 'Modo claro' }}
-      </button>
     </div>
   `,
 })
@@ -123,7 +111,8 @@ export class DashboardComponent implements OnInit {
 
   constructor(
     private api: ApiService,
-    public theme: ThemeService
+    public theme: ThemeService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   async ngOnInit() {
@@ -158,6 +147,8 @@ export class DashboardComponent implements OnInit {
     } catch {
       // No schedules yet
     }
+
+    this.cdr.detectChanges();
   }
 
   async generate() {
@@ -186,6 +177,7 @@ export class DashboardComponent implements OnInit {
         err?.error?.error || 'Error generando el horario. Verifica tu configuración.';
     } finally {
       this.generating = false;
+      this.cdr.detectChanges();
     }
   }
 
@@ -211,6 +203,7 @@ export class DashboardComponent implements OnInit {
       this.errorMessage = 'Error al regenerar parcialmente';
     } finally {
       this.generating = false;
+      this.cdr.detectChanges();
     }
   }
 
