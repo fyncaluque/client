@@ -2,12 +2,14 @@ import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService, ProviderInfo } from '../../core/services/api.service';
 import { ThemeService } from '../../core/services/theme.service';
+import { CalendarSkeletonComponent } from '../../shared/components/calendar-skeleton/calendar-skeleton.component';
+import { FloatingChatComponent } from '../../shared/components/floating-chat/floating-chat.component';
 import { WeeklyPlannerComponent } from '../schedule/weekly-planner/weekly-planner.component';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, WeeklyPlannerComponent],
+  imports: [CommonModule, WeeklyPlannerComponent, CalendarSkeletonComponent, FloatingChatComponent],
   template: `
     <div
       [ngClass]="
@@ -16,6 +18,10 @@ import { WeeklyPlannerComponent } from '../schedule/weekly-planner/weekly-planne
           : 'min-h-screen bg-[#1d1a2e] p-3 md:p-4'
       "
     >
+      @if (loading) {
+        <app-calendar-skeleton [theme]="theme.theme()" />
+      }
+
       @if (errorMessage) {
         <div
           class="mb-3 rounded-xl border p-3 text-sm"
@@ -57,7 +63,7 @@ import { WeeklyPlannerComponent } from '../schedule/weekly-planner/weekly-planne
         </div>
       }
 
-      @if (!generating && currentWeek.length > 0) {
+      @if (!loading && !generating && currentWeek.length > 0) {
         <app-weekly-planner
           [theme]="theme.theme()"
           [weekDays]="currentWeek"
@@ -70,7 +76,7 @@ import { WeeklyPlannerComponent } from '../schedule/weekly-planner/weekly-planne
         />
       }
 
-      @if (!generating && currentWeek.length === 0) {
+      @if (!loading && !generating && currentWeek.length === 0) {
         <div
           class="h-[calc(100vh-2rem)] rounded-2xl border flex items-center justify-center"
           [ngClass]="
@@ -94,9 +100,17 @@ import { WeeklyPlannerComponent } from '../schedule/weekly-planner/weekly-planne
         </div>
       }
     </div>
+
+    <app-floating-chat
+      [theme]="theme.theme()"
+      [profile]="profileData"
+      [weekDays]="currentWeek"
+      (actionsExecuted)="handleChatActions($event)"
+    />
   `,
 })
 export class DashboardComponent implements OnInit {
+  loading = true;
   generating = false;
   hasProfile = true;
   showPromptInput = false;
@@ -108,6 +122,7 @@ export class DashboardComponent implements OnInit {
 
   providers: ProviderInfo[] = [];
   selectedProvider = '';
+  profileData: any = null;
 
   constructor(
     private api: ApiService,
@@ -135,6 +150,9 @@ export class DashboardComponent implements OnInit {
     try {
       const profileRes: any = await this.api.getProfile();
       this.hasProfile = profileRes?.success && !!profileRes.data;
+      if (profileRes?.success && profileRes.data) {
+        this.profileData = profileRes.data;
+      }
     } catch {
       this.hasProfile = false;
     }
@@ -148,6 +166,7 @@ export class DashboardComponent implements OnInit {
       // No schedules yet
     }
 
+    this.loading = false;
     this.cdr.detectChanges();
   }
 
@@ -209,6 +228,76 @@ export class DashboardComponent implements OnInit {
 
   getSelectedDaySchedule(): any | null {
     return this.currentWeek.find((day) => day.dayOfWeek === this.selectedDay) || this.currentWeek[0] || null;
+  }
+
+  async handleChatActions(actions: { type: string; data: any }[]) {
+    for (const action of actions) {
+      switch (action.type) {
+        case 'updateTimeRange': {
+          if (this.profileData) {
+            const updatedProfile = { ...this.profileData, ...action.data };
+            try {
+              await this.api.saveProfile(updatedProfile);
+              this.profileData = updatedProfile;
+            } catch {
+              this.errorMessage = 'Error al actualizar el horario disponible';
+            }
+          }
+          break;
+        }
+
+        case 'updateProfile': {
+          if (this.profileData) {
+            const updatedProfile = { ...this.profileData, ...action.data };
+            try {
+              await this.api.saveProfile(updatedProfile);
+              this.profileData = updatedProfile;
+            } catch {
+              this.errorMessage = 'Error al actualizar el perfil';
+            }
+          }
+          break;
+        }
+
+        case 'addActivity': {
+          const { days, block } = action.data;
+          if (days && block && this.currentWeek.length > 0) {
+            this.currentWeek = this.currentWeek.map((day) => {
+              if (days.includes(day.dayOfWeek)) {
+                const newSchedule = [...(day.schedule || []), { ...block }];
+                newSchedule.sort((a, b) => {
+                  const aMin = parseInt(a.start.split(':')[0]) * 60 + parseInt(a.start.split(':')[1]);
+                  const bMin = parseInt(b.start.split(':')[0]) * 60 + parseInt(b.start.split(':')[1]);
+                  return aMin - bMin;
+                });
+                return { ...day, schedule: newSchedule };
+              }
+              return day;
+            });
+          }
+          break;
+        }
+
+        case 'removeActivity': {
+          const { activityName } = action.data;
+          if (activityName && this.currentWeek.length > 0) {
+            this.currentWeek = this.currentWeek.map((day) => ({
+              ...day,
+              schedule: (day.schedule || []).filter(
+                (b: any) => !b.activity.toLowerCase().includes(activityName.toLowerCase())
+              ),
+            }));
+          }
+          break;
+        }
+
+        case 'refreshSchedule': {
+          await this.loadData();
+          break;
+        }
+      }
+    }
+    this.cdr.detectChanges();
   }
 
   getProviderName(id: string): string {

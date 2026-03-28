@@ -63,7 +63,7 @@ interface WeekDaySchedule {
         </div>
       </div>
 
-      <div class="overflow-auto h-[calc(100%-57px)]">
+      <div [class]="'overflow-auto h-[calc(100%-57px)] ' + (theme === 'light' ? 'scrollbar-theme-light' : 'scrollbar-theme-dark')">
         <div class="min-w-[1020px]">
           <div [class]="skin.sticky" [style.gridTemplateColumns]="gridTemplateColumns">
             <div [class]="skin.colHora">Hora</div>

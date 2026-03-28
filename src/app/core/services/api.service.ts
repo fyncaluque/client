@@ -87,4 +87,54 @@ export class ApiService {
     const headers = await this.getHeaders();
     return this.http.delete(`${this.baseUrl}/schedule/${id}`, { headers }).toPromise();
   }
+
+  // Chat
+  async sendChatMessage(body: {
+    message: string;
+    context: any;
+    history: { role: 'user' | 'assistant'; content: string }[];
+  }): Promise<{
+    stream: AsyncGenerator<{ type: 'token' | 'actions'; content?: string; data?: any[] }>;
+  }> {
+    const token = await this.supabase.getAccessToken();
+
+    const response = await fetch(`${this.baseUrl}/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Chat request failed: ${response.status}`);
+    }
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+
+    async function* stream() {
+      if (!reader) return;
+      let buffer = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') return;
+            try {
+              yield JSON.parse(data);
+            } catch {}
+          }
+        }
+      }
+    }
+
+    return { stream: stream() };
+  }
 }
