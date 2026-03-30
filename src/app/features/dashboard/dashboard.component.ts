@@ -74,6 +74,8 @@ import { WeeklyPlannerComponent } from '../schedule/weekly-planner/weekly-planne
           (regenerateRange)="onRegenerateBlock($event)"
           (themeToggle)="theme.toggle()"
           (refreshSchedule)="loadData()"
+          (editProfile)="onEditProfile($event)"
+          (deleteSchedule)="onDeleteSchedule()"
         />
       }
 
@@ -130,6 +132,65 @@ export class DashboardComponent implements OnInit {
     public theme: ThemeService,
     private cdr: ChangeDetectorRef
   ) {}
+
+  ensureFullWeek(): void {
+    const dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const existing = new Set(this.currentWeek.map((d: any) => d.dayOfWeek));
+    const monday = this.getMonday();
+
+    for (let i = 0; i < dayNames.length; i++) {
+      if (!existing.has(dayNames[i])) {
+        const date = new Date(monday);
+        date.setDate(monday.getDate() + i);
+        this.currentWeek.push({
+          id: `new-${dayNames[i]}-${Date.now()}`,
+          date: date.toISOString(),
+          dayOfWeek: dayNames[i],
+          schedule: [],
+          suggestions: [],
+          tips: [],
+        });
+      }
+    }
+
+    this.currentWeek.sort((a: any, b: any) => dayNames.indexOf(a.dayOfWeek) - dayNames.indexOf(b.dayOfWeek));
+  }
+
+  private getMonday(): Date {
+    const ref = this.currentWeek.length > 0 ? new Date(this.currentWeek[0].date) : new Date();
+    ref.setHours(0, 0, 0, 0);
+    const day = ref.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    ref.setDate(ref.getDate() + diff);
+    return ref;
+  }
+
+  private clampBlock(block: any): any | null {
+    if (!this.profileData) return block;
+    const availableStart = this.timeToMinutes(this.profileData.wakeUpTime || '06:00');
+    const availableEnd = this.timeToMinutes(this.profileData.bedTime || '23:00');
+    const blockStart = this.timeToMinutes(block.start);
+    const blockEnd = this.timeToMinutes(block.end);
+
+    if (blockStart >= availableEnd || blockEnd <= availableStart) return null;
+
+    return {
+      ...block,
+      start: this.minutesToTime(Math.max(blockStart, availableStart)),
+      end: this.minutesToTime(Math.min(blockEnd, availableEnd)),
+    };
+  }
+
+  private timeToMinutes(time: string): number {
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
+  }
+
+  private minutesToTime(totalMinutes: number): string {
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  }
 
   async ngOnInit() {
     await this.loadData();
@@ -227,6 +288,36 @@ export class DashboardComponent implements OnInit {
     }
   }
 
+  async onEditProfile(formData: any) {
+    if (!this.profileData) return;
+    const updatedProfile = { ...this.profileData, ...formData };
+    try {
+      await this.api.saveProfile(updatedProfile);
+      this.profileData = updatedProfile;
+    } catch {
+      this.errorMessage = 'Error al guardar el perfil';
+    }
+    this.cdr.detectChanges();
+  }
+
+  async onDeleteSchedule() {
+    if (this.currentWeek.length === 0) return;
+    this.generating = true;
+    try {
+      for (const day of this.currentWeek) {
+        if (day.id) {
+          await this.api.deleteSchedule(day.id);
+        }
+      }
+      this.currentWeek = [];
+    } catch {
+      this.errorMessage = 'Error al eliminar el horario';
+    } finally {
+      this.generating = false;
+      this.cdr.detectChanges();
+    }
+  }
+
   getSelectedDaySchedule(): any | null {
     return this.currentWeek.find((day) => day.dayOfWeek === this.selectedDay) || this.currentWeek[0] || null;
   }
@@ -262,19 +353,23 @@ export class DashboardComponent implements OnInit {
 
         case 'addActivity': {
           const { days, block } = action.data;
-          if (days && block && this.currentWeek.length > 0) {
-            this.currentWeek = this.currentWeek.map((day) => {
-              if (days.includes(day.dayOfWeek)) {
-                const newSchedule = [...(day.schedule || []), { ...block }];
-                newSchedule.sort((a, b) => {
-                  const aMin = parseInt(a.start.split(':')[0]) * 60 + parseInt(a.start.split(':')[1]);
-                  const bMin = parseInt(b.start.split(':')[0]) * 60 + parseInt(b.start.split(':')[1]);
-                  return aMin - bMin;
-                });
-                return { ...day, schedule: newSchedule };
-              }
-              return day;
-            });
+          if (days && block) {
+            this.ensureFullWeek();
+            const clamped = this.clampBlock(block);
+            if (clamped) {
+              this.currentWeek = this.currentWeek.map((day: any) => {
+                if (days.includes(day.dayOfWeek)) {
+                  const newSchedule = [...(day.schedule || []), { ...clamped }];
+                  newSchedule.sort((a, b) => {
+                    const aMin = parseInt(a.start.split(':')[0]) * 60 + parseInt(a.start.split(':')[1]);
+                    const bMin = parseInt(b.start.split(':')[0]) * 60 + parseInt(b.start.split(':')[1]);
+                    return aMin - bMin;
+                  });
+                  return { ...day, schedule: newSchedule };
+                }
+                return day;
+              });
+            }
           }
           break;
         }
@@ -294,6 +389,51 @@ export class DashboardComponent implements OnInit {
 
         case 'refreshSchedule': {
           await this.loadData();
+          break;
+        }
+
+        case 'deleteSchedule': {
+          if (this.currentWeek.length > 0) {
+            try {
+              for (const day of this.currentWeek) {
+                if (day.id) {
+                  await this.api.deleteSchedule(day.id);
+                }
+              }
+              this.currentWeek = [];
+            } catch {
+              this.errorMessage = 'Error al eliminar el horario';
+            }
+          }
+          break;
+        }
+
+        case 'generatePlan':
+        case 'generateRoutine': {
+          const { blocks } = action.data;
+          if (blocks) {
+            this.ensureFullWeek();
+            for (const blockDef of blocks) {
+              const { days, ...block } = blockDef;
+              if (days && block) {
+                const clamped = this.clampBlock(block);
+                if (clamped) {
+                  this.currentWeek = this.currentWeek.map((day: any) => {
+                    if (days.includes(day.dayOfWeek)) {
+                      const newSchedule = [...(day.schedule || []), { ...clamped }];
+                      newSchedule.sort((a: any, b: any) => {
+                        const aMin = parseInt(a.start.split(':')[0]) * 60 + parseInt(a.start.split(':')[1]);
+                        const bMin = parseInt(b.start.split(':')[0]) * 60 + parseInt(b.start.split(':')[1]);
+                        return aMin - bMin;
+                      });
+                      return { ...day, schedule: newSchedule };
+                    }
+                    return day;
+                  });
+                }
+              }
+            }
+          }
           break;
         }
       }

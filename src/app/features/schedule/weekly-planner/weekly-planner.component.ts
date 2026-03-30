@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, ElementRef, EventEmitter, Input, Output } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import type { AppTheme } from '../../../core/services/theme.service';
 import { ThemeToggleComponent } from '../../../shared/components/theme-toggle/theme-toggle.component';
 import {
@@ -17,6 +18,8 @@ interface ScheduleBlock {
   energy: string;
   isFixed: boolean;
   notes?: string;
+  planId?: string;
+  planProgress?: { label: string; milestone?: string };
 }
 
 interface WeekDaySchedule {
@@ -31,7 +34,7 @@ interface WeekDaySchedule {
 @Component({
   selector: 'app-weekly-planner',
   standalone: true,
-  imports: [CommonModule, ThemeToggleComponent],
+  imports: [CommonModule, FormsModule, ThemeToggleComponent],
   template: `
     <div [class]="skin.shell">
       <div [class]="skin.header">
@@ -154,6 +157,33 @@ interface WeekDaySchedule {
                       </div>
                     </div>
                   }
+
+                  <!-- Actions -->
+                  <div
+                    class="border-t pt-2.5 mt-2.5 flex gap-2"
+                    [class]="theme === 'light' ? 'border-[#e8e2ff]' : 'border-[#3d3558]'"
+                  >
+                    <button
+                      type="button"
+                      (click)="openEditProfile()"
+                      class="flex-1 text-xs py-1.5 rounded-lg transition-colors cursor-pointer font-medium"
+                      [class]="theme === 'light'
+                        ? 'bg-[#ece7ff] text-[#6b628e] hover:bg-[#e3dcff]'
+                        : 'bg-[#3d3558] text-[#9b8fc4] hover:bg-[#4a3f6b]'"
+                    >
+                      Editar perfil
+                    </button>
+                    <button
+                      type="button"
+                      (click)="showDeleteConfirm = true; showProfile = false"
+                      class="flex-1 text-xs py-1.5 rounded-lg transition-colors cursor-pointer font-medium"
+                      [class]="theme === 'light'
+                        ? 'bg-[#ffe4ec] text-[#a14f68] hover:bg-[#ffd6e0]'
+                        : 'bg-[#3d2830] text-[#f0a0b8] hover:bg-[#4d3040]'"
+                    >
+                      Eliminar horario
+                    </button>
+                  </div>
                 </div>
               </div>
             }
@@ -185,7 +215,7 @@ interface WeekDaySchedule {
         <div class="min-w-[1020px]">
           <div [class]="skin.sticky" [style.gridTemplateColumns]="gridTemplateColumns">
             <div [class]="skin.colHora">Hora</div>
-            @for (day of weekDays; track day.id) {
+            @for (day of displayDays; track day.id) {
               <button
                 type="button"
                 [class]="dayHeaderClass(day)"
@@ -200,13 +230,13 @@ interface WeekDaySchedule {
           <div class="grid relative" [style.gridTemplateColumns]="gridTemplateColumns">
             <div [class]="skin.gridTimeCol" [style.height.px]="dayHeightPx">
               @for (hour of hours; track hour) {
-                <div [class]="skin.hourLine" [style.top.px]="hour * hourHeightPx">
+                <div [class]="skin.hourLine" [style.top.px]="hourToPx(hour)">
                   <span [class]="skin.hourLabel">{{ formatHour(hour) }}</span>
                 </div>
               }
             </div>
 
-            @for (day of weekDays; track day.id; let dayIndex = $index) {
+            @for (day of displayDays; track day.id; let dayIndex = $index) {
               <div
                 [class]="skin.dayCol"
                 [style.height.px]="dayHeightPx"
@@ -218,24 +248,42 @@ interface WeekDaySchedule {
                 @for (hour of hours; track hour) {
                   <div
                     [class]="skin.hourLineInner"
-                    [style.top.px]="hour * hourHeightPx"
+                    [style.top.px]="hourToPx(hour)"
                   ></div>
                 }
 
                 @for (block of day.schedule; track $index; let blockIndex = $index) {
                   <div
                     class="absolute left-1 right-1 rounded-lg border cursor-move p-2 overflow-hidden"
+                    [class.border-dashed]="block.planId"
                     draggable="true"
                     [style.top.px]="timeToPx(block.start)"
                     [style.height.px]="getBlockHeight(block)"
                     [style.backgroundColor]="getCategoryFill(block.category)"
                     [style.borderColor]="getCategoryBorder(block.category)"
+                    [style.opacity]="block.planId ? '0.85' : '1'"
                     (dragstart)="onBlockDragStart($event, dayIndex, blockIndex)"
                   >
                     <div class="flex items-start justify-between gap-2">
                       <div class="min-w-0">
                         <p [class]="skin.blockTitle">{{ block.activity }}</p>
                         <p [class]="skin.blockMeta">{{ block.start }} - {{ block.end }}</p>
+                        @if (block.planProgress) {
+                          <div class="flex items-center gap-1 mt-1">
+                            <span
+                              class="text-[9px] px-1.5 py-0.5 rounded-full font-medium"
+                              [class]="theme === 'light'
+                                ? 'bg-[#8dd3c7]/30 text-[#2a7a6a]'
+                                : 'bg-[#6db8a8]/30 text-[#a8e2d8]'"
+                            >{{ block.planProgress.label }}</span>
+                            @if (block.planProgress.milestone) {
+                              <span
+                                class="text-[9px] truncate opacity-70"
+                                [class]="theme === 'light' ? 'text-[#6b628e]' : 'text-[#9b8fc4]'"
+                              >{{ block.planProgress.milestone }}</span>
+                            }
+                          </div>
+                        }
                       </div>
                       <div class="flex items-center gap-1">
                         @if (!block.isFixed) {
@@ -266,6 +314,179 @@ interface WeekDaySchedule {
           </div>
         </div>
       </div>
+
+      <!-- Edit Profile Modal -->
+      @if (showEditProfile) {
+        <div class="absolute inset-0 z-50 flex items-center justify-center bg-black/40 rounded-2xl">
+          <div
+            class="w-[420px] max-h-[80vh] rounded-xl shadow-2xl overflow-hidden flex flex-col"
+            [class]="theme === 'light'
+              ? 'bg-[#f8f6ff] border border-[#d8d4f2]'
+              : 'bg-[#2a2438] border border-[#4a3f6b]'"
+          >
+            <!-- Modal header -->
+            <div
+              class="flex items-center justify-between px-4 py-3 border-b shrink-0"
+              [class]="theme === 'light'
+                ? 'border-[#d8d4f2] bg-[#f3efff]'
+                : 'border-[#4a3f6b] bg-[#322b4a]'"
+            >
+              <h3 class="text-sm font-semibold" [class]="theme === 'light' ? 'text-[#2f2a44]' : 'text-[#f0ecff]'">Editar perfil</h3>
+              <button type="button" (click)="showEditProfile = false" class="p-1 rounded-lg cursor-pointer" [class]="theme === 'light' ? 'text-[#6b628e] hover:bg-[#ece7ff]' : 'text-[#9b8fc4] hover:bg-[#3d3558]'">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            <!-- Modal body -->
+            <div class="overflow-y-auto p-4 space-y-4" [class]="theme === 'light' ? 'scrollbar-theme-light' : 'scrollbar-theme-dark'">
+              <!-- Nombre -->
+              <div>
+                <label class="block text-[10px] uppercase tracking-wide font-semibold mb-1" [class]="theme === 'light' ? 'text-[#6b628e]' : 'text-[#9b8fc4]'">Nombre</label>
+                <input type="text" [(ngModel)]="editForm.name" class="w-full rounded-lg px-3 py-2 text-sm outline-none" [class]="theme === 'light' ? 'bg-white border border-[#d8d4f2] text-[#2f2a44] focus:border-[#8dd3c7]' : 'bg-[#1d1a2e] border border-[#4a3f6b] text-[#e8e4f5] focus:border-[#6db8a8]'" />
+              </div>
+
+              <!-- Horario de sueño -->
+              <div>
+                <label class="block text-[10px] uppercase tracking-wide font-semibold mb-1.5" [class]="theme === 'light' ? 'text-[#6b628e]' : 'text-[#9b8fc4]'">Horario de sueño</label>
+                <div class="flex gap-3">
+                  <div class="flex-1">
+                    <label class="block text-[10px] mb-1" [class]="theme === 'light' ? 'text-[#a89fd0]' : 'text-[#6b6088]'">Despertar</label>
+                    <input type="time" [(ngModel)]="editForm.wakeUpTime" class="w-full rounded-lg px-3 py-2 text-sm outline-none" [class]="theme === 'light' ? 'bg-white border border-[#d8d4f2] text-[#2f2a44] focus:border-[#8dd3c7]' : 'bg-[#1d1a2e] border border-[#4a3f6b] text-[#e8e4f5] focus:border-[#6db8a8]'" />
+                  </div>
+                  <div class="flex-1">
+                    <label class="block text-[10px] mb-1" [class]="theme === 'light' ? 'text-[#a89fd0]' : 'text-[#6b6088]'">Dormir</label>
+                    <input type="time" [(ngModel)]="editForm.bedTime" class="w-full rounded-lg px-3 py-2 text-sm outline-none" [class]="theme === 'light' ? 'bg-white border border-[#d8d4f2] text-[#2f2a44] focus:border-[#8dd3c7]' : 'bg-[#1d1a2e] border border-[#4a3f6b] text-[#e8e4f5] focus:border-[#6db8a8]'" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Horario de trabajo -->
+              <div>
+                <label class="block text-[10px] uppercase tracking-wide font-semibold mb-1.5" [class]="theme === 'light' ? 'text-[#6b628e]' : 'text-[#9b8fc4]'">Horario de trabajo</label>
+                <div class="flex gap-3">
+                  <div class="flex-1">
+                    <label class="block text-[10px] mb-1" [class]="theme === 'light' ? 'text-[#a89fd0]' : 'text-[#6b6088]'">Inicio</label>
+                    <input type="time" [(ngModel)]="editForm.workStart" class="w-full rounded-lg px-3 py-2 text-sm outline-none" [class]="theme === 'light' ? 'bg-white border border-[#d8d4f2] text-[#2f2a44] focus:border-[#8dd3c7]' : 'bg-[#1d1a2e] border border-[#4a3f6b] text-[#e8e4f5] focus:border-[#6db8a8]'" />
+                  </div>
+                  <div class="flex-1">
+                    <label class="block text-[10px] mb-1" [class]="theme === 'light' ? 'text-[#a89fd0]' : 'text-[#6b6088]'">Fin</label>
+                    <input type="time" [(ngModel)]="editForm.workEnd" class="w-full rounded-lg px-3 py-2 text-sm outline-none" [class]="theme === 'light' ? 'bg-white border border-[#d8d4f2] text-[#2f2a44] focus:border-[#8dd3c7]' : 'bg-[#1d1a2e] border border-[#4a3f6b] text-[#e8e4f5] focus:border-[#6db8a8]'" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Energía pico -->
+              <div>
+                <label class="block text-[10px] uppercase tracking-wide font-semibold mb-1.5" [class]="theme === 'light' ? 'text-[#6b628e]' : 'text-[#9b8fc4]'">Energía pico</label>
+                <div class="flex gap-3">
+                  <div class="flex-1">
+                    <label class="block text-[10px] mb-1" [class]="theme === 'light' ? 'text-[#a89fd0]' : 'text-[#6b6088]'">Inicio</label>
+                    <input type="time" [(ngModel)]="editForm.peakEnergyStart" class="w-full rounded-lg px-3 py-2 text-sm outline-none" [class]="theme === 'light' ? 'bg-white border border-[#d8d4f2] text-[#2f2a44] focus:border-[#8dd3c7]' : 'bg-[#1d1a2e] border border-[#4a3f6b] text-[#e8e4f5] focus:border-[#6db8a8]'" />
+                  </div>
+                  <div class="flex-1">
+                    <label class="block text-[10px] mb-1" [class]="theme === 'light' ? 'text-[#a89fd0]' : 'text-[#6b6088]'">Fin</label>
+                    <input type="time" [(ngModel)]="editForm.peakEnergyEnd" class="w-full rounded-lg px-3 py-2 text-sm outline-none" [class]="theme === 'light' ? 'bg-white border border-[#d8d4f2] text-[#2f2a44] focus:border-[#8dd3c7]' : 'bg-[#1d1a2e] border border-[#4a3f6b] text-[#e8e4f5] focus:border-[#6db8a8]'" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Estilo de vida -->
+              <div>
+                <label class="block text-[10px] uppercase tracking-wide font-semibold mb-1" [class]="theme === 'light' ? 'text-[#6b628e]' : 'text-[#9b8fc4]'">Estilo de vida</label>
+                <select [(ngModel)]="editForm.lifestyle" class="w-full rounded-lg px-3 py-2 text-sm outline-none" [class]="theme === 'light' ? 'bg-white border border-[#d8d4f2] text-[#2f2a44]' : 'bg-[#1d1a2e] border border-[#4a3f6b] text-[#e8e4f5]'">
+                  <option value="active">Activo</option>
+                  <option value="balanced">Equilibrado</option>
+                  <option value="sedentary">Sedentario</option>
+                </select>
+              </div>
+
+              <!-- Tipo de trabajo -->
+              <div>
+                <label class="block text-[10px] uppercase tracking-wide font-semibold mb-1" [class]="theme === 'light' ? 'text-[#6b628e]' : 'text-[#9b8fc4]'">Tipo de trabajo</label>
+                <select [(ngModel)]="editForm.workType" class="w-full rounded-lg px-3 py-2 text-sm outline-none" [class]="theme === 'light' ? 'bg-white border border-[#d8d4f2] text-[#2f2a44]' : 'bg-[#1d1a2e] border border-[#4a3f6b] text-[#e8e4f5]'">
+                  <option value="remote">Remoto</option>
+                  <option value="office">Oficina</option>
+                  <option value="hybrid">Híbrido</option>
+                  <option value="student">Estudiante</option>
+                  <option value="freelance">Freelance</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Modal footer -->
+            <div
+              class="flex justify-end gap-2 px-4 py-3 border-t shrink-0"
+              [class]="theme === 'light'
+                ? 'border-[#d8d4f2] bg-[#f3efff]'
+                : 'border-[#4a3f6b] bg-[#322b4a]'"
+            >
+              <button
+                type="button"
+                (click)="showEditProfile = false"
+                class="px-4 py-1.5 rounded-lg text-xs font-medium cursor-pointer"
+                [class]="theme === 'light'
+                  ? 'text-[#6b628e] hover:bg-[#ece7ff]'
+                  : 'text-[#9b8fc4] hover:bg-[#3d3558]'"
+              >Cancelar</button>
+              <button
+                type="button"
+                (click)="saveProfile()"
+                class="px-4 py-1.5 rounded-lg text-xs font-medium cursor-pointer"
+                [class]="theme === 'light'
+                  ? 'bg-[#8dd3c7] text-[#1f2937] hover:bg-[#a8e2d8]'
+                  : 'bg-[#6db8a8] text-[#0f1a18] hover:bg-[#8dd3c7]'"
+              >Guardar</button>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Delete Confirmation Dialog -->
+      @if (showDeleteConfirm) {
+        <div class="absolute inset-0 z-50 flex items-center justify-center bg-black/40 rounded-2xl">
+          <div
+            class="w-[340px] rounded-xl shadow-2xl overflow-hidden"
+            [class]="theme === 'light'
+              ? 'bg-[#f8f6ff] border border-[#d8d4f2]'
+              : 'bg-[#2a2438] border border-[#4a3f6b]'"
+          >
+            <div class="p-5 text-center">
+              <div
+                class="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center"
+                [class]="theme === 'light'
+                  ? 'bg-[#ffe4ec]'
+                  : 'bg-[#3d2830]'"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" [class]="theme === 'light' ? 'text-[#a14f68]' : 'text-[#f0a0b8]'">
+                  <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+              </div>
+              <h3 class="text-sm font-semibold mb-1" [class]="theme === 'light' ? 'text-[#2f2a44]' : 'text-[#f0ecff]'">Eliminar horario</h3>
+              <p class="text-xs mb-4" [class]="theme === 'light' ? 'text-[#6b628e]' : 'text-[#9b8fc4]'">
+                Se eliminará todo el horario semanal actual. Esta acción no se puede deshacer.
+              </p>
+              <div class="flex gap-2">
+                <button
+                  type="button"
+                  (click)="showDeleteConfirm = false"
+                  class="flex-1 px-4 py-2 rounded-lg text-xs font-medium cursor-pointer"
+                  [class]="theme === 'light'
+                    ? 'text-[#6b628e] bg-[#ece7ff] hover:bg-[#e3dcff]'
+                    : 'text-[#9b8fc4] bg-[#3d3558] hover:bg-[#4a3f6b]'"
+                >Cancelar</button>
+                <button
+                  type="button"
+                  (click)="confirmDeleteSchedule()"
+                  class="flex-1 px-4 py-2 rounded-lg text-xs font-medium cursor-pointer"
+                  [class]="theme === 'light'
+                    ? 'bg-[#f2b8c6] text-[#7f1d3f] hover:bg-[#e8a8b8]'
+                    : 'bg-[#8b4a5c] text-[#fce4ec] hover:bg-[#9b5a6c]'"
+                >Eliminar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
     </div>
   `,
 })
@@ -279,16 +500,88 @@ export class WeeklyPlannerComponent {
   @Output() themeToggle = new EventEmitter<void>();
   @Output() refreshSchedule = new EventEmitter<void>();
   @Output() regenerateRange = new EventEmitter<{ dayId: string; range: { start: string; end: string } }>();
+  @Output() editProfile = new EventEmitter<any>();
+  @Output() deleteSchedule = new EventEmitter<void>();
 
   readonly hourHeightPx = 56;
-  readonly hours = Array.from({ length: 25 }, (_, i) => i);
+  readonly dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
   showProfile = false;
+  showEditProfile = false;
+  showDeleteConfirm = false;
+  editForm: any = {};
   private dragState: { dayIndex: number; blockIndex: number; durationMinutes: number } | null = null;
   private dragOverDayIndex: number = -1;
   dropPreview: { startMinutes: number } | null = null;
 
+  get hours(): number[] {
+    const start = this.timeToMinutes(this.profile?.wakeUpTime || '06:00');
+    const end = this.timeToMinutes(this.profile?.bedTime || '23:00');
+    const startHour = Math.floor(start / 60);
+    const endHour = Math.min(Math.ceil(end / 60), 24);
+    return Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
+  }
+
+  get displayDays(): WeekDaySchedule[] {
+    const dataMap = new Map<string, WeekDaySchedule>();
+    for (const d of this.weekDays) {
+      dataMap.set(d.dayOfWeek, d);
+    }
+    return this.dayNames.map((dayName, i) => {
+      const existing = dataMap.get(dayName);
+      if (existing) return existing;
+      const monday = this.getMonday();
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + i);
+      return {
+        id: `empty-${dayName}`,
+        date: date.toISOString(),
+        dayOfWeek: dayName,
+        schedule: [],
+        suggestions: [],
+        tips: [],
+      };
+    });
+  }
+
+  private getMonday(): Date {
+    const ref = this.weekDays.length > 0 ? new Date(this.weekDays[0].date) : new Date();
+    ref.setHours(0, 0, 0, 0);
+    const day = ref.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    ref.setDate(ref.getDate() + diff);
+    return ref;
+  }
+
   get skin() {
     return WEEKLY_PLANNER_SKIN[this.theme];
+  }
+
+  openEditProfile(): void {
+    if (this.profile) {
+      this.editForm = {
+        name: this.profile.name || '',
+        wakeUpTime: this.profile.wakeUpTime || '',
+        bedTime: this.profile.bedTime || '',
+        workStart: this.profile.workStart || '',
+        workEnd: this.profile.workEnd || '',
+        peakEnergyStart: this.profile.peakEnergyStart || '',
+        peakEnergyEnd: this.profile.peakEnergyEnd || '',
+        lifestyle: this.profile.lifestyle || 'balanced',
+        workType: this.profile.workType || 'remote',
+      };
+    }
+    this.showProfile = false;
+    this.showEditProfile = true;
+  }
+
+  saveProfile(): void {
+    this.editProfile.emit(this.editForm);
+    this.showEditProfile = false;
+  }
+
+  confirmDeleteSchedule(): void {
+    this.deleteSchedule.emit();
+    this.showDeleteConfirm = false;
   }
 
   dayHeaderClass(day: WeekDaySchedule): string {
@@ -298,15 +591,20 @@ export class WeeklyPlannerComponent {
   }
 
   get gridTemplateColumns(): string {
-    return `72px repeat(${Math.max(this.weekDays.length, 1)}, minmax(130px, 1fr))`;
+    return '72px repeat(7, minmax(130px, 1fr))';
   }
 
   get dayHeightPx(): number {
-    return 24 * this.hourHeightPx;
+    return this.hours.length * this.hourHeightPx;
+  }
+
+  hourToPx(hour: number): number {
+    const startHour = this.hours.length > 0 ? this.hours[0] : 0;
+    return (hour - startHour) * this.hourHeightPx;
   }
 
   getTotalBlocks(): number {
-    return this.weekDays.reduce((acc, day) => acc + (day.schedule?.length || 0), 0);
+    return this.displayDays.reduce((acc, day) => acc + (day.schedule?.length || 0), 0);
   }
 
   getDayLabel(day: string): string {
@@ -327,7 +625,9 @@ export class WeeklyPlannerComponent {
   }
 
   timeToPx(time: string): number {
-    return this.timeToMinutes(time) * (this.hourHeightPx / 60);
+    const totalMinutes = this.timeToMinutes(time);
+    const startOffset = this.hours.length > 0 ? this.hours[0] * 60 : 0;
+    return (totalMinutes - startOffset) * (this.hourHeightPx / 60);
   }
 
   getBlockHeight(block: ScheduleBlock): number {
@@ -347,7 +647,7 @@ export class WeeklyPlannerComponent {
   }
 
   onBlockDragStart(event: DragEvent, dayIndex: number, blockIndex: number): void {
-    const day = this.weekDays[dayIndex];
+    const day = this.displayDays[dayIndex];
     const block = day?.schedule?.[blockIndex];
     if (!block || block.isFixed) {
       event.preventDefault();
@@ -376,7 +676,7 @@ export class WeeklyPlannerComponent {
 
       let startMinutes = this.snapToHourOrFiveMin(rawMinutes);
 
-      const day = this.weekDays[dayIndex];
+      const day = this.displayDays[dayIndex];
       if (day?.schedule?.length) {
         for (const block of day.schedule) {
           const topEdge = this.timeToMinutes(block.start);
@@ -423,7 +723,7 @@ export class WeeklyPlannerComponent {
 
     const endMinutes = startMinutes + this.dragState.durationMinutes;
 
-    const nextWeek = this.weekDays.map((d) => ({ ...d, schedule: [...d.schedule] }));
+    const nextWeek = this.displayDays.map((d) => ({ ...d, schedule: [...(d.schedule || [])] }));
     const sourceDay = nextWeek[this.dragState.dayIndex];
     const movedBlock = sourceDay.schedule[this.dragState.blockIndex];
     sourceDay.schedule.splice(this.dragState.blockIndex, 1);
@@ -454,7 +754,8 @@ export class WeeklyPlannerComponent {
   }
 
   minutesToPx(minutes: number): number {
-    return minutes * (this.hourHeightPx / 60);
+    const startOffset = this.hours.length > 0 ? this.hours[0] * 60 : 0;
+    return (minutes - startOffset) * (this.hourHeightPx / 60);
   }
 
   formatTime(totalMinutes: number): string {
