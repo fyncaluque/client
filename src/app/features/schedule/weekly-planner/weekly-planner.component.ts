@@ -503,7 +503,8 @@ export class WeeklyPlannerComponent {
   @Output() editProfile = new EventEmitter<any>();
   @Output() deleteSchedule = new EventEmitter<void>();
 
-  readonly hourHeightPx = 56;
+  readonly hourHeightPx = 60;
+  readonly topPaddingPx = 30;
   readonly dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
   showProfile = false;
   showEditProfile = false;
@@ -595,12 +596,12 @@ export class WeeklyPlannerComponent {
   }
 
   get dayHeightPx(): number {
-    return this.hours.length * this.hourHeightPx;
+    return this.topPaddingPx + this.hours.length * this.hourHeightPx;
   }
 
   hourToPx(hour: number): number {
     const startHour = this.hours.length > 0 ? this.hours[0] : 0;
-    return (hour - startHour) * this.hourHeightPx;
+    return this.topPaddingPx + (hour - startHour) * this.hourHeightPx;
   }
 
   getTotalBlocks(): number {
@@ -627,7 +628,7 @@ export class WeeklyPlannerComponent {
   timeToPx(time: string): number {
     const totalMinutes = this.timeToMinutes(time);
     const startOffset = this.hours.length > 0 ? this.hours[0] * 60 : 0;
-    return (totalMinutes - startOffset) * (this.hourHeightPx / 60);
+    return this.topPaddingPx + (totalMinutes - startOffset) * (this.hourHeightPx / 60);
   }
 
   getBlockHeight(block: ScheduleBlock): number {
@@ -674,20 +675,10 @@ export class WeeklyPlannerComponent {
       const offsetY = Math.max(0, Math.min(event.clientY - rect.top, this.dayHeightPx));
       const rawMinutes = this.pxToMinutes(offsetY);
 
-      let startMinutes = this.snapToHourOrFiveMin(rawMinutes);
-
-      const day = this.displayDays[dayIndex];
-      if (day?.schedule?.length) {
-        for (const block of day.schedule) {
-          const topEdge = this.timeToMinutes(block.start);
-          const bottomEdge = this.timeToMinutes(block.end);
-
-          if (rawMinutes >= topEdge && rawMinutes <= bottomEdge) {
-            startMinutes = Math.max(0, Math.min(topEdge, 24 * 60 - this.dragState.durationMinutes));
-            break;
-          }
-        }
-      }
+      const startMinutes = Math.max(
+        0,
+        Math.min(this.snapToHourOrFiveMin(rawMinutes), 24 * 60 - this.dragState.durationMinutes)
+      );
 
       this.dropPreview = { startMinutes };
     }
@@ -755,7 +746,7 @@ export class WeeklyPlannerComponent {
 
   minutesToPx(minutes: number): number {
     const startOffset = this.hours.length > 0 ? this.hours[0] * 60 : 0;
-    return (minutes - startOffset) * (this.hourHeightPx / 60);
+    return this.topPaddingPx + (minutes - startOffset) * (this.hourHeightPx / 60);
   }
 
   formatTime(totalMinutes: number): string {
@@ -765,7 +756,8 @@ export class WeeklyPlannerComponent {
   }
 
   private pxToMinutes(px: number): number {
-    return px / (this.hourHeightPx / 60);
+    const startOffset = this.hours.length > 0 ? this.hours[0] * 60 : 0;
+    return startOffset + (px - this.topPaddingPx) / (this.hourHeightPx / 60);
   }
 
   private timeToMinutes(time: string): number {
