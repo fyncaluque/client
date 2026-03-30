@@ -68,6 +68,7 @@ import { WeeklyPlannerComponent } from '../schedule/weekly-planner/weekly-planne
           [theme]="theme.theme()"
           [weekDays]="currentWeek"
           [selectedDay]="selectedDay"
+          [profile]="profileData"
           (selectedDayChange)="selectedDay = $event"
           (weekDaysChange)="currentWeek = $event"
           (regenerateRange)="onRegenerateBlock($event)"

@@ -41,6 +41,124 @@ interface WeekDaySchedule {
         </div>
         <div class="flex items-center gap-3">
           <span [class]="skin.headerSub">{{ getTotalBlocks() }} bloques</span>
+
+          <!-- Profile button -->
+          <div class="relative">
+            <button
+              type="button"
+              (click)="showProfile = !showProfile"
+              class="p-1.5 rounded-lg transition-colors cursor-pointer"
+              [class]="theme === 'light'
+                ? 'text-[#6b628e] hover:bg-[#ece7ff]'
+                : 'text-[#9b8fc4] hover:bg-[#3d3558]'"
+              title="Ver perfil"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            </button>
+
+            @if (showProfile && profile) {
+              <div
+                class="absolute right-0 top-full mt-2 w-72 rounded-xl shadow-2xl border z-50 overflow-hidden"
+                [class]="theme === 'light'
+                  ? 'bg-[#f8f6ff] border-[#d8d4f2]'
+                  : 'bg-[#2a2438] border-[#4a3f6b]'"
+              >
+                <!-- Profile header -->
+                <div
+                  class="px-4 py-3 border-b"
+                  [class]="theme === 'light'
+                    ? 'border-[#d8d4f2] bg-[#f3efff]'
+                    : 'border-[#4a3f6b] bg-[#322b4a]'"
+                >
+                  <p class="text-sm font-semibold" [class]="theme === 'light' ? 'text-[#2f2a44]' : 'text-[#f0ecff]'">
+                    {{ profile.name || 'Mi Perfil' }}
+                  </p>
+                  <p class="text-xs" [class]="theme === 'light' ? 'text-[#6b628e]' : 'text-[#9b8fc4]'">
+                    {{ profile.email }}
+                  </p>
+                </div>
+
+                <!-- Profile details -->
+                <div class="p-3 space-y-3">
+                  <!-- Horario -->
+                  <div>
+                    <p class="text-[10px] uppercase tracking-wide font-semibold mb-1.5" [class]="theme === 'light' ? 'text-[#6b628e]' : 'text-[#9b8fc4]'">Horario</p>
+                    <div class="flex items-center gap-4 text-xs" [class]="theme === 'light' ? 'text-[#2f2a44]' : 'text-[#e8e4f5]'">
+                      <span class="flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/></svg>
+                        {{ profile.wakeUpTime || '--:--' }}
+                      </span>
+                      <span class="opacity-40">→</span>
+                      <span class="flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                        {{ profile.bedTime || '--:--' }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- Trabajo -->
+                  @if (profile.workStart && profile.workEnd) {
+                    <div>
+                      <p class="text-[10px] uppercase tracking-wide font-semibold mb-1.5" [class]="theme === 'light' ? 'text-[#6b628e]' : 'text-[#9b8fc4]'">Trabajo</p>
+                      <p class="text-xs" [class]="theme === 'light' ? 'text-[#2f2a44]' : 'text-[#e8e4f5]'">
+                        {{ profile.workStart }} - {{ profile.workEnd }}
+                        @if (profile.workDays?.length) {
+                          <span class="opacity-60"> · {{ profile.workDays.length }} días</span>
+                        }
+                      </p>
+                    </div>
+                  }
+
+                  <!-- Energía pico -->
+                  <div>
+                    <p class="text-[10px] uppercase tracking-wide font-semibold mb-1.5" [class]="theme === 'light' ? 'text-[#6b628e]' : 'text-[#9b8fc4]'">Energía pico</p>
+                    <p class="text-xs" [class]="theme === 'light' ? 'text-[#2f2a44]' : 'text-[#e8e4f5]'">
+                      {{ profile.peakEnergyStart || '--:--' }} - {{ profile.peakEnergyEnd || '--:--' }}
+                    </p>
+                  </div>
+
+                  <!-- Estilo de vida -->
+                  <div class="flex gap-4">
+                    <div>
+                      <p class="text-[10px] uppercase tracking-wide font-semibold mb-1" [class]="theme === 'light' ? 'text-[#6b628e]' : 'text-[#9b8fc4]'">Estilo</p>
+                      <p class="text-xs capitalize" [class]="theme === 'light' ? 'text-[#2f2a44]' : 'text-[#e8e4f5]'">
+                        {{ profile.lifestyle || '—' }}
+                      </p>
+                    </div>
+                    @if (profile.workType) {
+                      <div>
+                        <p class="text-[10px] uppercase tracking-wide font-semibold mb-1" [class]="theme === 'light' ? 'text-[#6b628e]' : 'text-[#9b8fc4]'">Tipo</p>
+                        <p class="text-xs capitalize" [class]="theme === 'light' ? 'text-[#2f2a44]' : 'text-[#e8e4f5]'">
+                          {{ profile.workType }}
+                        </p>
+                      </div>
+                    }
+                  </div>
+
+                  <!-- Objetivos -->
+                  @if (profile.goals?.length) {
+                    <div>
+                      <p class="text-[10px] uppercase tracking-wide font-semibold mb-1.5" [class]="theme === 'light' ? 'text-[#6b628e]' : 'text-[#9b8fc4]'">Objetivos</p>
+                      <div class="flex flex-wrap gap-1">
+                        @for (goal of profile.goals; track goal) {
+                          <span
+                            class="text-[10px] px-2 py-0.5 rounded-full"
+                            [class]="theme === 'light'
+                              ? 'bg-[#ece7ff] text-[#6b628e]'
+                              : 'bg-[#3d3558] text-[#9b8fc4]'"
+                          >{{ goal }}</span>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+
           <button
             type="button"
             (click)="refreshSchedule.emit()"
@@ -155,6 +273,7 @@ export class WeeklyPlannerComponent {
   @Input() theme: AppTheme = 'light';
   @Input() weekDays: WeekDaySchedule[] = [];
   @Input() selectedDay = 'monday';
+  @Input() profile: any = null;
   @Output() selectedDayChange = new EventEmitter<string>();
   @Output() weekDaysChange = new EventEmitter<WeekDaySchedule[]>();
   @Output() themeToggle = new EventEmitter<void>();
@@ -163,6 +282,7 @@ export class WeeklyPlannerComponent {
 
   readonly hourHeightPx = 56;
   readonly hours = Array.from({ length: 25 }, (_, i) => i);
+  showProfile = false;
   private dragState: { dayIndex: number; blockIndex: number; durationMinutes: number } | null = null;
   private dragOverDayIndex: number = -1;
   dropPreview: { startMinutes: number } | null = null;
